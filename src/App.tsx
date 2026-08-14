@@ -1079,6 +1079,8 @@
                 const parsedTrip = JSON.parse(cachedActive);
                 if (parsedTrip && parsedTrip.id && ['SEARCHING', 'ACCEPTED', 'ARRIVED', 'STARTED'].includes(parsedTrip.status)) {
                   setActiveTripWithTracking(parsedTrip);
+                } else {
+                  try { localStorage.removeItem('ezz_active_trip_cache'); } catch {}
                 }
               }
             } catch {}
@@ -2075,7 +2077,7 @@
 
       if (supabaseConnected) {
         try {
-          const freshDrivers = await fetchDrivers();
+          const freshDrivers = await fetchDriversBasic();
           if (freshDrivers?.length) driverList = freshDrivers;
         } catch (e) {
           console.warn('Could not fetch fresh drivers for dispatch, falling back to local list:', e);
@@ -2514,6 +2516,7 @@
       notifiedEventsRef.current.add('cancelled_notified');
       // Mark local status change so polling/realtime won't immediately overwrite
       markLocalStatusChange('CANCELLED');
+      try { localStorage.removeItem('ezz_active_trip_cache'); } catch {}
       setActiveTripWithTracking(null);
       setNoAvailableDrivers(false);
       setPendingRequestCount(0);

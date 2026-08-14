@@ -1577,7 +1577,7 @@ export const fetchActiveTrip = async (userId?: string, userRole?: 'rider' | 'dri
     let query = supabase.from('ezz_active_trip').select('*').order('created_at', { ascending: false });
 
     if (userId && userRole === 'rider') {
-      query = query.eq('rider_id', userId).in('status', ['SEARCHING', 'ACCEPTED', 'ARRIVED', 'STARTED']);
+      query = query.eq('rider_id', userId).in('status', ['SEARCHING', 'ACCEPTED', 'ARRIVED', 'STARTED']).neq('status', 'CANCELLED');
     } else if (userId && userRole === 'driver') {
       query = query.or(`driver_id.eq.${userId},current_offered_driver_id.eq.${userId}`);
       query = query.in('status', ['SEARCHING', 'ACCEPTED', 'ARRIVED', 'STARTED']);

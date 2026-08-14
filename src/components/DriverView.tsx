@@ -350,13 +350,19 @@ export const DriverView: React.FC<DriverViewProps> = ({
                   </span>
                 )}
               </div>
-              <p className="text-[10px] opacity-90 truncate leading-tight">{currentDriver.carModel} • {currentDriver.carPlate}</p>
+                <p className="text-[10px] opacity-90 truncate leading-tight">{currentDriver.carModel} • {currentDriver.carPlate}</p>
+                {currentDriver.phone && (
+                  <a
+                    href={`https://wa.me/${currentDriver.phone.replace(/[^0-9]/g, '') || '201015555555'}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-white/90 hover:text-white flex items-center gap-1 mt-0.5 w-fit"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    {currentDriver.phone}
+                  </a>
+                )}
               <div className="flex items-center gap-1.5 mt-0.5 text-[10px]">
-                <div className="flex items-center gap-0.5 text-amber-200">
-                  <Star className="w-3 h-3 fill-amber-300 text-amber-300" />
-                  <span className="font-bold text-white">{currentDriver.rating}</span>
-                  <span className="text-[9px] opacity-80">({currentDriver.totalTrips})</span>
-                </div>
                 <div className="bg-white/15 px-1.5 py-0.5 rounded-full text-[9px] font-semibold">{currentDriver.vehicleName}</div>
               </div>
             </div>
