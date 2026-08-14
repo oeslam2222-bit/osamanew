@@ -1304,44 +1304,34 @@
       return () => sub.unsubscribe();
     }, [supabaseConnected, driverIsLoggedIn, selectedDriverId, rider.id]);
 
-    // Polling disabled — using Realtime only to reduce API usage
+    // Lightweight polling for drivers list — every 5 minutes fallback instead of heavy Realtime
     useEffect(() => {
-      if (!supabaseConnected) return;
+      if (!supabaseConnected || !driverIsLoggedIn) return;
 
-      const channel = supabase
-        .channel('drivers_list_channel')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'ezz_drivers',
-        }, (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const remoteDriver = mapDriverFromDB(payload.new);
+      const pollInterval = 300000; // 5 minutes
+
+      const interval = setInterval(async () => {
+        if (!isMountedRef.current) return;
+        try {
+          const remoteDrivers = await fetchDriversPolling();
+          if (isMountedRef.current && remoteDrivers) {
             setDrivers((prev) => {
-              const existing = prev.find((d) => d.id === remoteDriver.id);
-              if (existing) {
-                if (pendingDriverToggleRef.current === remoteDriver.id) {
-                  const localPending = prev.find((d) => d.id === remoteDriver.id);
-                  if (localPending) return prev.map((d) => d.id === remoteDriver.id ? localPending : d);
-                }
-                return prev.map((d) => d.id === remoteDriver.id ? { ...d, ...remoteDriver } : d);
-              }
-              return [...prev, remoteDriver];
+              const remoteMap = new Map(remoteDrivers.map((d) => [d.id, d]));
+              return prev
+                .map((d) => {
+                  const rd = remoteMap.get(d.id);
+                  return rd ? { ...d, ...rd } : d;
+                })
+                .filter((d): d is Driver => !!remoteMap.has(d.id) || d.id !== '');
             });
-          } else if (payload.eventType === 'DELETE') {
-            const deletedId = (payload.old as any).id;
-            if (deletedId) {
-              setDrivers((prev) => prev.filter((d) => d.id !== deletedId));
-            }
           }
-        });
+        } catch (err) {
+          console.warn('Drivers polling error:', err);
+        }
+      }, pollInterval);
 
-      channel.subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }, [supabaseConnected]);
+      return () => clearInterval(interval);
+    }, [supabaseConnected, driverIsLoggedIn, setDrivers]);
 
     // Polling fallback for drivers list — disabled, using Realtime only
     // Realtime subscription on ezz_drivers handles all driver updates instantly
@@ -1380,7 +1370,7 @@
     useEffect(() => {
       if (!supabaseConnected || !adminIsLoggedIn) return;
 
-      const pollInterval = 300000;
+      const pollInterval = 600000;
 
       const interval = setInterval(async () => {
         if (!isMountedRef.current) return;
@@ -1419,7 +1409,7 @@
       };
 
     updateLastSeen();
-    const interval = setInterval(updateLastSeen, 30000);
+    const interval = setInterval(updateLastSeen, 60000);
 
       // Mark offline immediately when app/tab is closed
       const markOffline = async () => {
@@ -1910,7 +1900,7 @@
       if (driversSyncTimerRef.current) clearTimeout(driversSyncTimerRef.current);
       driversSyncTimerRef.current = setTimeout(() => {
         syncDriversToSupabase(drivers);
-      }, 3000);
+      }, 10000);
       return () => {
         if (driversSyncTimerRef.current) clearTimeout(driversSyncTimerRef.current);
       };

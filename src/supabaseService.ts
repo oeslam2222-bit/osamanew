@@ -1599,16 +1599,29 @@ export const fetchActiveTrip = async (userId?: string, userRole?: 'rider' | 'dri
     }
 
     if (userId && userRole === 'driver') {
-      const relevant = data.find((row: any) => {
-        const trip = mapTripFromDB(row);
-        if (trip.driverId === userId) return true;
-        if (trip.currentOfferedDriverId === userId) return true;
-        if (trip.status === 'SEARCHING' && trip.offeredDriverIds?.includes(userId)) return true;
-        return false;
-      });
-      if (relevant) {
-        console.log('[fetchActiveTrip] Found active trip:', relevant.id, 'status:', relevant.status, 'for driver:', userId);
-        return mapTripFromDB(relevant);
+      const relevant = data
+        .map((row: any) => ({ row, trip: mapTripFromDB(row) }))
+        .filter(({ trip }) => {
+          if (trip.driverId === userId) return true;
+          if (trip.currentOfferedDriverId === userId) return true;
+          if (trip.status === 'SEARCHING' && trip.offeredDriverIds?.includes(userId)) return true;
+          return false;
+        })
+        .sort((a, b) => {
+          const statusOrder: Record<string, number> = { 'ACCEPTED': 0, 'ARRIVED': 1, 'STARTED': 2, 'SEARCHING': 3 };
+          const aOrder = statusOrder[a.trip.status] ?? 9;
+          const bOrder = statusOrder[b.trip.status] ?? 9;
+          if (aOrder !== bOrder) return aOrder - bOrder;
+          if (a.trip.driverId === userId && b.trip.driverId !== userId) return -1;
+          if (b.trip.driverId === userId && a.trip.driverId !== userId) return 1;
+          if (a.trip.currentOfferedDriverId === userId && b.trip.currentOfferedDriverId !== userId) return -1;
+          if (b.trip.currentOfferedDriverId === userId && a.trip.currentOfferedDriverId !== userId) return 1;
+          return 0;
+        });
+      const best = relevant[0];
+      if (best) {
+        console.log('[fetchActiveTrip] Found active trip:', best.trip.id, 'status:', best.trip.status, 'for driver:', userId);
+        return best.trip;
       }
       console.log('[fetchActiveTrip] No relevant trip for driver:', userId);
       return null;
