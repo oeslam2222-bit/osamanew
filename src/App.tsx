@@ -826,8 +826,8 @@
         let driver = drivers.find(d => d.id === selectedDriverId);
         if (!driver) {
           try {
-            const freshDrivers = await fetchDrivers();
-            driver = freshDrivers?.find(d => d.id === selectedDriverId);
+          const freshDrivers = await fetchDriversBasic();
+          driver = freshDrivers?.find(d => d.id === selectedDriverId);
           } catch (e) {
             console.warn('[DriverReset] Could not fetch driver:', e);
           }
@@ -4730,19 +4730,25 @@
                                       return;
                                     }
                                     const admin = await authenticateAdmin(adminPhone.trim(), adminPassword.trim());
-                                    if (admin) {
-                                      setAdminIsLoggedIn(true);
-                                      setAdminUserId(admin.id);
-                                      if (supabaseConnected) {
-                                        await setAppRole('ADMIN');
-                                      }
-                                      if (supabaseConnected) {
-                                        await clearSession('RIDER');
-                                        await clearSession('DRIVER');
-                                        await saveSession('ADMIN', admin.id);
-                                      }
-                                      auditLogger.log('admin_login', admin.id, 'admin', 'Login successful', true);
-                                      adminAuthLimiter.reset(adminPhone.trim());
+                                     if (admin) {
+                                       setAdminIsLoggedIn(true);
+                                       setAdminUserId(admin.id);
+                                       if (supabaseConnected) {
+                                         await setAppRole('ADMIN');
+                                       }
+                                       if (supabaseConnected) {
+                                         await clearSession('RIDER');
+                                         await clearSession('DRIVER');
+                                         await saveSession('ADMIN', admin.id);
+                                       }
+                                       if (supabaseConnected) {
+                                         const freshDrivers = await fetchDrivers();
+                                         if (freshDrivers && freshDrivers.length > 0) {
+                                           setDrivers(freshDrivers);
+                                         }
+                                       }
+                                       auditLogger.log('admin_login', admin.id, 'admin', 'Login successful', true);
+                                       adminAuthLimiter.reset(adminPhone.trim());
                                     } else {
                                       auditLogger.log('admin_login', adminPhone.trim(), 'admin', 'Login failed - invalid credentials', false, 'Wrong phone or password');
                                       setAdminLoginError(lang === 'ar' ? 'رقم الهاتف أو كلمة المرور غير صحيحة!' : 'Incorrect credentials!');
