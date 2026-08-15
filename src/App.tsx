@@ -1304,11 +1304,11 @@
       return () => sub.unsubscribe();
     }, [supabaseConnected, driverIsLoggedIn, selectedDriverId, rider.id]);
 
-    // Lightweight polling for drivers list — every 5 minutes fallback instead of heavy Realtime
+    // Lightweight polling for drivers list — keeps rider/driver/admin views in sync
     useEffect(() => {
-      if (!supabaseConnected || !driverIsLoggedIn) return;
+      if (!supabaseConnected) return;
 
-      const pollInterval = 300000; // 5 minutes
+      const pollInterval = 30000; // 30 seconds
 
       const interval = setInterval(async () => {
         if (!isMountedRef.current) return;
@@ -1331,7 +1331,7 @@
       }, pollInterval);
 
       return () => clearInterval(interval);
-    }, [supabaseConnected, driverIsLoggedIn, setDrivers]);
+    }, [supabaseConnected, setDrivers]);
 
     // Polling fallback for drivers list — disabled, using Realtime only
     // Realtime subscription on ezz_drivers handles all driver updates instantly
@@ -2286,6 +2286,13 @@
           );
           return;
         }
+      } catch (err) {
+        console.error('[handleRequestRide] Error:', err);
+        triggerToast(
+          lang === 'ar' ? 'حدث خطأ أثناء طلب الرحلة' : 'Error requesting ride',
+          lang === 'ar' ? 'يرجى المحاولة مرة أخرى' : 'Please try again',
+          'warning'
+        );
       } finally {
         requestInProgressRef.current = false;
       }
