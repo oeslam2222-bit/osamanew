@@ -482,6 +482,10 @@ export const RiderView: React.FC<RiderViewProps> = ({
 
   const onlineDrivers = drivers.filter((d) => {
     if (!d.isOnline || d.approvalStatus !== 'APPROVED') return false;
+    if (d.lastSeen) {
+      const lastSeenMs = new Date(d.lastSeen).getTime();
+      if (Date.now() - lastSeenMs > 60000) return false;
+    }
     if (selectedRegionName && (d.serviceAreas || []).length > 0) {
       const regionNameLower = String(selectedRegionName || '').toLowerCase();
       const regionIdLower = String(selectedRegion?.id || '').toLowerCase();
