@@ -76,7 +76,7 @@ export const useDriverTracking = (
 
       if (!driver) {
         try {
-          const freshDrivers = await import('../supabaseService').then(m => m.fetchDriversBasic());
+          const freshDrivers = await import('../supabaseService').then(m => m.fetchDrivers());
           driver = freshDrivers?.find(d => d.id === selectedDriverId);
         } catch (e) {
           console.warn('[DriverReset] Could not fetch driver:', e);

@@ -826,8 +826,8 @@
         let driver = drivers.find(d => d.id === selectedDriverId);
         if (!driver) {
           try {
-          const freshDrivers = await fetchDriversBasic();
-          driver = freshDrivers?.find(d => d.id === selectedDriverId);
+            const freshDrivers = await fetchDrivers();
+            driver = freshDrivers?.find(d => d.id === selectedDriverId);
           } catch (e) {
             console.warn('[DriverReset] Could not fetch driver:', e);
           }
@@ -1079,8 +1079,6 @@
                 const parsedTrip = JSON.parse(cachedActive);
                 if (parsedTrip && parsedTrip.id && ['SEARCHING', 'ACCEPTED', 'ARRIVED', 'STARTED'].includes(parsedTrip.status)) {
                   setActiveTripWithTracking(parsedTrip);
-                } else {
-                  try { localStorage.removeItem('ezz_active_trip_cache'); } catch {}
                 }
               }
             } catch {}
@@ -1304,34 +1302,44 @@
       return () => sub.unsubscribe();
     }, [supabaseConnected, driverIsLoggedIn, selectedDriverId, rider.id]);
 
-    // Lightweight polling for drivers list — every 5 minutes fallback instead of heavy Realtime
+    // Polling disabled — using Realtime only to reduce API usage
     useEffect(() => {
-      if (!supabaseConnected || !driverIsLoggedIn) return;
+      if (!supabaseConnected) return;
 
-      const pollInterval = 300000; // 5 minutes
-
-      const interval = setInterval(async () => {
-        if (!isMountedRef.current) return;
-        try {
-          const remoteDrivers = await fetchDriversPolling();
-          if (isMountedRef.current && remoteDrivers) {
+      const channel = supabase
+        .channel('drivers_list_channel')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'ezz_drivers',
+        }, (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const remoteDriver = mapDriverFromDB(payload.new);
             setDrivers((prev) => {
-              const remoteMap = new Map(remoteDrivers.map((d) => [d.id, d]));
-              return prev
-                .map((d) => {
-                  const rd = remoteMap.get(d.id);
-                  return rd ? { ...d, ...rd } : d;
-                })
-                .filter((d): d is Driver => !!remoteMap.has(d.id) || d.id !== '');
+              const existing = prev.find((d) => d.id === remoteDriver.id);
+              if (existing) {
+                if (pendingDriverToggleRef.current === remoteDriver.id) {
+                  const localPending = prev.find((d) => d.id === remoteDriver.id);
+                  if (localPending) return prev.map((d) => d.id === remoteDriver.id ? localPending : d);
+                }
+                return prev.map((d) => d.id === remoteDriver.id ? { ...d, ...remoteDriver } : d);
+              }
+              return [...prev, remoteDriver];
             });
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as any).id;
+            if (deletedId) {
+              setDrivers((prev) => prev.filter((d) => d.id !== deletedId));
+            }
           }
-        } catch (err) {
-          console.warn('Drivers polling error:', err);
-        }
-      }, pollInterval);
+        });
 
-      return () => clearInterval(interval);
-    }, [supabaseConnected, driverIsLoggedIn, setDrivers]);
+      channel.subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [supabaseConnected]);
 
     // Polling fallback for drivers list — disabled, using Realtime only
     // Realtime subscription on ezz_drivers handles all driver updates instantly
@@ -1370,7 +1378,7 @@
     useEffect(() => {
       if (!supabaseConnected || !adminIsLoggedIn) return;
 
-      const pollInterval = 600000;
+      const pollInterval = 300000;
 
       const interval = setInterval(async () => {
         if (!isMountedRef.current) return;
@@ -1409,7 +1417,7 @@
       };
 
     updateLastSeen();
-    const interval = setInterval(updateLastSeen, 60000);
+    const interval = setInterval(updateLastSeen, 30000);
 
       // Mark offline immediately when app/tab is closed
       const markOffline = async () => {
@@ -1900,7 +1908,7 @@
       if (driversSyncTimerRef.current) clearTimeout(driversSyncTimerRef.current);
       driversSyncTimerRef.current = setTimeout(() => {
         syncDriversToSupabase(drivers);
-      }, 10000);
+      }, 3000);
       return () => {
         if (driversSyncTimerRef.current) clearTimeout(driversSyncTimerRef.current);
       };
@@ -2067,7 +2075,7 @@
 
       if (supabaseConnected) {
         try {
-          const freshDrivers = await fetchDriversBasic();
+          const freshDrivers = await fetchDrivers();
           if (freshDrivers?.length) driverList = freshDrivers;
         } catch (e) {
           console.warn('Could not fetch fresh drivers for dispatch, falling back to local list:', e);
@@ -2506,7 +2514,6 @@
       notifiedEventsRef.current.add('cancelled_notified');
       // Mark local status change so polling/realtime won't immediately overwrite
       markLocalStatusChange('CANCELLED');
-      try { localStorage.removeItem('ezz_active_trip_cache'); } catch {}
       setActiveTripWithTracking(null);
       setNoAvailableDrivers(false);
       setPendingRequestCount(0);
@@ -4720,25 +4727,19 @@
                                       return;
                                     }
                                     const admin = await authenticateAdmin(adminPhone.trim(), adminPassword.trim());
-                                     if (admin) {
-                                       setAdminIsLoggedIn(true);
-                                       setAdminUserId(admin.id);
-                                       if (supabaseConnected) {
-                                         await setAppRole('ADMIN');
-                                       }
-                                       if (supabaseConnected) {
-                                         await clearSession('RIDER');
-                                         await clearSession('DRIVER');
-                                         await saveSession('ADMIN', admin.id);
-                                       }
-                                       if (supabaseConnected) {
-                                         const freshDrivers = await fetchDrivers();
-                                         if (freshDrivers && freshDrivers.length > 0) {
-                                           setDrivers(freshDrivers);
-                                         }
-                                       }
-                                       auditLogger.log('admin_login', admin.id, 'admin', 'Login successful', true);
-                                       adminAuthLimiter.reset(adminPhone.trim());
+                                    if (admin) {
+                                      setAdminIsLoggedIn(true);
+                                      setAdminUserId(admin.id);
+                                      if (supabaseConnected) {
+                                        await setAppRole('ADMIN');
+                                      }
+                                      if (supabaseConnected) {
+                                        await clearSession('RIDER');
+                                        await clearSession('DRIVER');
+                                        await saveSession('ADMIN', admin.id);
+                                      }
+                                      auditLogger.log('admin_login', admin.id, 'admin', 'Login successful', true);
+                                      adminAuthLimiter.reset(adminPhone.trim());
                                     } else {
                                       auditLogger.log('admin_login', adminPhone.trim(), 'admin', 'Login failed - invalid credentials', false, 'Wrong phone or password');
                                       setAdminLoginError(lang === 'ar' ? 'رقم الهاتف أو كلمة المرور غير صحيحة!' : 'Incorrect credentials!');

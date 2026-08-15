@@ -1700,11 +1700,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                    ? (lang === 'ar' ? '🛺 توكتوك' : '🛺 TukTuk')
                                    : (lang === 'ar' ? '🚲 تروسيكل' : '🚲 Tricycle')
                                  } | {drv.vehicleName} | {drv.carPlate}
-                                {drv.phone && (
-                                  <span className="block text-[8px] text-blue-500 font-mono">
-                                    {lang === 'ar' ? '📞' : '📞'} {drv.phone}
-                                  </span>
-                                )}
                                </p>
                              </div>
                              <div className="flex flex-col items-end gap-1">

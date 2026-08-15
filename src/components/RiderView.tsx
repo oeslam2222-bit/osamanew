@@ -910,15 +910,21 @@ export const RiderView: React.FC<RiderViewProps> = ({
                     </span>
                   </p>
                 </div>
-                  <div className="text-right">
-                    <a
-                      href={`tel:${drivers.find((d) => d.id === activeTrip.driverId)?.phone}`}
-                      className="inline-flex items-center gap-1 mt-1 text-[10px] text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors pointer-events-auto"
-                    >
-                      <Phone className="w-2.5 h-2.5" />
-                      <span>{lang === 'ar' ? 'اتصال' : 'Call'}</span>
-                    </a>
+                <div className="text-right">
+                  <div className="flex items-center gap-0.5 text-amber-500 justify-end">
+                    <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                    <span className="text-xs font-bold">
+                      {drivers.find((d) => d.id === activeTrip.driverId)?.rating}
+                    </span>
                   </div>
+                  <a
+                    href={`tel:${drivers.find((d) => d.id === activeTrip.driverId)?.phone}`}
+                    className="inline-flex items-center gap-1 mt-1 text-[10px] text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors pointer-events-auto"
+                  >
+                    <Phone className="w-2.5 h-2.5" />
+                    <span>{lang === 'ar' ? 'اتصال' : 'Call'}</span>
+                  </a>
+                </div>
               </div>
             )}
 
