@@ -15,6 +15,8 @@
   import { 
     checkSupabaseConnection, 
     fetchDrivers, 
+    fetchDriversBasic,
+    fetchDriversPolling,
     saveDriver, 
     fetchRiders, 
     saveRider, 
@@ -1302,6 +1304,7 @@
       return () => sub.unsubscribe();
     }, [supabaseConnected, driverIsLoggedIn, selectedDriverId, rider.id]);
 
+<<<<<<< HEAD
     // Polling disabled — using Realtime only to reduce API usage
     useEffect(() => {
       if (!supabaseConnected) return;
@@ -1315,6 +1318,19 @@
         }, (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const remoteDriver = mapDriverFromDB(payload.new);
+=======
+    // Lightweight polling for drivers list — keeps rider/driver/admin views in sync
+    useEffect(() => {
+      if (!supabaseConnected) return;
+
+      const pollInterval = 30000; // 30 seconds
+
+      const interval = setInterval(async () => {
+        if (!isMountedRef.current) return;
+        try {
+          const remoteDrivers = await fetchDriversPolling();
+          if (isMountedRef.current && remoteDrivers) {
+>>>>>>> 2af4916d8cc0041e1f437c7c154696ff877bc5c3
             setDrivers((prev) => {
               const existing = prev.find((d) => d.id === remoteDriver.id);
               if (existing) {
@@ -1334,12 +1350,17 @@
           }
         });
 
+<<<<<<< HEAD
       channel.subscribe();
 
       return () => {
         supabase.removeChannel(channel);
       };
     }, [supabaseConnected]);
+=======
+      return () => clearInterval(interval);
+    }, [supabaseConnected, setDrivers]);
+>>>>>>> 2af4916d8cc0041e1f437c7c154696ff877bc5c3
 
     // Polling fallback for drivers list — disabled, using Realtime only
     // Realtime subscription on ezz_drivers handles all driver updates instantly
@@ -2294,6 +2315,13 @@
           );
           return;
         }
+      } catch (err) {
+        console.error('[handleRequestRide] Error:', err);
+        triggerToast(
+          lang === 'ar' ? 'حدث خطأ أثناء طلب الرحلة' : 'Error requesting ride',
+          lang === 'ar' ? 'يرجى المحاولة مرة أخرى' : 'Please try again',
+          'warning'
+        );
       } finally {
         requestInProgressRef.current = false;
       }
