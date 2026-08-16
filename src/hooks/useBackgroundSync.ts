@@ -3,7 +3,6 @@ import { Driver, Rider, SystemStats, Location, Trip } from '../types';
 import {
   fetchDrivers,
   fetchDriversBasic,
-  fetchDriversPolling,
   saveDriver,
   fetchRiders,
   saveRider,
@@ -18,7 +17,6 @@ const STALE_THRESHOLD_MS = 120000;
 
 export const useBackgroundSync = (
   supabaseConnected: boolean,
-  driverIsLoggedIn: boolean,
   drivers: Driver[],
   registeredRiders: Rider[],
   stats: SystemStats,
